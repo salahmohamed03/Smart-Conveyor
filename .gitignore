@@ -1,0 +1,6 @@
+/cmake
+/cmake-build-debug
+/build
+CMakeLists.txt
+/STM32-base
+/STM32-base-STM32Cube
