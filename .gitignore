@@ -4,3 +4,4 @@
 CMakeLists.txt
 /STM32-base
 /STM32-base-STM32Cube
+/.vscode
