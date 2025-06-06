@@ -3,8 +3,7 @@
 
 #include <stdint.h>
 
-void ir_sensor_init(void);
-void ir_sensor_update(void);
-uint16_t ir_sensor_get_count(void);
+void IRSensor_Init(void);
+uint8_t IRSensor_CheckFallingEdge(void);  // Returns 1 if falling edge detected since last call
 
 #endif
