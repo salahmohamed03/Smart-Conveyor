@@ -1,9 +1,9 @@
-#ifndef IR_SENSOR_H
-#define IR_SENSOR_H
+#ifndef EDGE_DETECT_H
+#define EDGE_DETECT_H
 
-#include <stdint.h>
+#include "Std_Types.h"
 
-void IRSensor_Init(void);
-uint8_t IRSensor_CheckFallingEdge(void);  // Returns 1 if falling edge detected since last call
+void EdgeDetect_Init(void);
+uint8 EdgeDetect_CheckFallingEdge(void);
 
 #endif

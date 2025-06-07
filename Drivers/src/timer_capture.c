@@ -1,65 +1,66 @@
-#include "Timer_Capture.h"
+#include "timer_capture.h"
 #include "Gpio.h"
 #include "Rcc.h"
+#include "Std_Types.h"
 
-#define TIM2_BASE_ADDRESS    0x40000000
-#define TIM2_CR1             *((volatile uint32*)(TIM2_BASE_ADDRESS + 0x00))
-#define TIM2_CCMR1           *((volatile uint32*)(TIM2_BASE_ADDRESS + 0x18))
-#define TIM2_CCER            *((volatile uint32*)(TIM2_BASE_ADDRESS + 0x20))
-#define TIM2_CNT             *((volatile uint32*)(TIM2_BASE_ADDRESS + 0x24))
-#define TIM2_PSC             *((volatile uint32*)(TIM2_BASE_ADDRESS + 0x28))
-#define TIM2_ARR             *((volatile uint32*)(TIM2_BASE_ADDRESS + 0x2C))
-#define TIM2_CCR1            *((volatile uint32*)(TIM2_BASE_ADDRESS + 0x34))
-#define TIM2_SR              *((volatile uint32*)(TIM2_BASE_ADDRESS + 0x10))
+#define TIM2_BASE        0x40000000
+#define TIM2_CR1         (*(volatile uint32 *)(TIM2_BASE + 0x00))
+#define TIM2_DIER        (*(volatile uint32 *)(TIM2_BASE + 0x0C))
+#define TIM2_SR          (*(volatile uint32 *)(TIM2_BASE + 0x10))
+#define TIM2_CCMR1       (*(volatile uint32 *)(TIM2_BASE + 0x18))
+#define TIM2_CCER        (*(volatile uint32 *)(TIM2_BASE + 0x20))
+#define TIM2_CNT         (*(volatile uint32 *)(TIM2_BASE + 0x24))
+#define TIM2_PSC         (*(volatile uint32 *)(TIM2_BASE + 0x28))
+#define TIM2_ARR         (*(volatile uint32 *)(TIM2_BASE + 0x2C))
+#define TIM2_CCR1        (*(volatile uint32 *)(TIM2_BASE + 0x34))
 
-// Peripheral IDs based on your RCC implementation
-#define TIM2_PERIPHERAL_ID   28  // TIM2 is APB1 bit 0 (APB1 starts at ID 32*2=64? Need clarification)
-#define GPIOA_PERIPHERAL_ID  0   // GPIOA is AHB1 bit 0
+void TimerCapture_Init(void) {
+    // Enable clocks for GPIOA and TIM2
+    Rcc_Enable(RCC_GPIOA);
+    Rcc_Enable(RCC_TIM2);
 
-void Timer_Capture_Init(void)
-{
-    /* Enable clocks using your RCC functions */
-    Rcc_Enable(GPIOA_PERIPHERAL_ID);  // Enable GPIOA clock
-    Rcc_Enable(TIM2_PERIPHERAL_ID);   // Enable TIM2 clock
+    // Configure PA0 as Alternate Function Input (TIM2_CH1)
+    Gpio_Init(GPIO_A, 0, GPIO_AF, GPIO_PUSH_PULL);  // AF mode for TIM2_CH1
 
-    /* Configure PA0 as alternate function (TIM2_CH1) */
-    Gpio_Init(GPIO_A, 0, GPIO_AF, GPIO_PULL_DOWN);
+    // Timer configuration: 72 MHz / (71+1) = 1 MHz (1 µs per tick)
+    TIM2_PSC = 71;
+    TIM2_ARR = 0xFFFFFFFF;  // Max reload value (32-bit counter)
 
-    /* Timer configuration */
-    TIM2_PSC = 16 - 1;         // Prescaler for 1MHz clock (assuming 16MHz system clock)
-    TIM2_ARR = 0xFFFFFFFF;     // Maximum auto-reload value
+    // Input Capture on Channel 1 (TI1)
+    TIM2_CCMR1 &= ~(0xFF);  // Clear CC1S and IC1F
+    TIM2_CCMR1 |= (1 << 0); // CC1S = 01 (TI1 input)
+    TIM2_CCMR1 |= (0 << 4); // IC1F = 0000 (no filter)
 
-    /* Input capture configuration */
-    TIM2_CCMR1 |= (0x01 << 0); // CC1 channel is configured as input, IC1 is mapped on TI1
-    TIM2_CCMR1 |= (0x00 << 2); // No prescaler
-    TIM2_CCMR1 |= (0x00 << 4); // Input capture filter (no filtering)
+    // Rising edge detection
+    TIM2_CCER &= ~(1 << 1); // CC1P = 0 (rising edge)
+    TIM2_CCER |= (1 << 0);  // CC1E = 1 (enable capture)
 
-    TIM2_CCER |= (1 << 0);     // CC1 enable
-    TIM2_CCER &= ~(1 << 1);    // Capture on rising edge
-
-    TIM2_CR1 |= (1 << 0);      // Enable TIM2
+    TIM2_CNT = 0;           // Reset counter
+    TIM2_CR1 |= (1 << 0);   // Enable timer (CEN = 1)
 }
 
-uint32 Timer_Capture_Measure_Pulse_Period(void)
-{
+uint32 TimerCapture_MeasurePulseWidth(void) {
     uint32 first_edge = 0;
     uint32 second_edge = 0;
+    uint32 timeout = 1000000;  // 1 second timeout (adjust if needed)
 
-    /* Wait for first rising edge */
-    while(!(TIM2_SR & (1 << 1)));  // Wait for CC1IF flag
+    // Wait for first rising edge
+    while (!(TIM2_SR & (1 << 1)) && timeout--);
+    if (timeout == 0) return 0;  // Timeout
     first_edge = TIM2_CCR1;
-    TIM2_SR &= ~(1 << 1);           // Clear CC1IF
+    TIM2_SR &= ~(1 << 1);  // Clear CC1IF
 
-    /* Wait for second rising edge */
-    while(!(TIM2_SR & (1 << 1)));  // Wait for CC1IF flag
+    // Wait for second rising edge
+    timeout = 1000000;
+    while (!(TIM2_SR & (1 << 1)) && timeout--);
+    if (timeout == 0) return 0;  // Timeout
     second_edge = TIM2_CCR1;
-    TIM2_SR &= ~(1 << 1);           // Clear CC1IF
+    TIM2_SR &= ~(1 << 1);  // Clear CC1IF
 
-    /* Calculate period (in microseconds since we have 1MHz timer clock) */
-    if(second_edge > first_edge) {
-        return second_edge - first_edge;
+    // Handle counter overflow
+    if (second_edge >= first_edge) {
+        return second_edge - first_edge;  // Normal case
     } else {
-        /* Handle timer overflow */
-        return (0xFFFFFFFF - first_edge) + second_edge;
+        return (0xFFFFFFFF - first_edge) + second_edge + 1;  // Overflow case
     }
 }

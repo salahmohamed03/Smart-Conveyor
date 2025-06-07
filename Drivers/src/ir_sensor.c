@@ -1,31 +1,18 @@
-#include "ir_sensor.h"
-#include "Rcc.h"
 #include "Gpio.h"
-#include <stdint.h>
-// Assume IR sensor input on PC13 (user button pin on many MCUs)
+#include "ir_sensor.h"
+#include "Gpio.h"
+#include "Rcc.h"
 
-#define IR_GPIO_PORT GPIO_C
-#define IR_PIN 13
+static uint8 previous_state = 1;  // Assume the button is unpressed initially (HIGH)
 
-static uint8_t lastState = 1;
-
-void IRSensor_Init(void) {
+void EdgeDetect_Init(void) {
     Rcc_Enable(RCC_GPIOC);
-
-    // Configure pin as input floating or input pull-up depending on IR sensor wiring
-    Gpio_Init(IR_GPIO_PORT, IR_PIN, GPIO_INPUT, GPIO_PULL_UP);
-
-    lastState = 1; // Assume idle high initially
+    Gpio_Init(GPIO_C, 1, GPIO_INPUT, GPIO_PULL_UP);  // Enable internal pull-up
 }
 
-uint8_t IRSensor_CheckFallingEdge(void) {
-    uint8_t currentState = Gpio_ReadPin(IR_GPIO_PORT, IR_PIN);
-
-    if (lastState == 1 && currentState == 0) {
-        lastState = currentState;
-        return 1; // Falling edge detected
-    }
-
-    lastState = currentState;
-    return 0;
+uint8 EdgeDetect_CheckFallingEdge(void) {
+    uint8 current_state = Gpio_ReadPin(GPIO_C, 1);
+    uint8 falling_edge = (previous_state == 1 && current_state == 0);
+    previous_state = current_state;
+    return falling_edge;
 }
