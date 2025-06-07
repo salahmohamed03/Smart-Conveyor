@@ -1,10 +1,9 @@
-#ifndef IR_SENSOR_H
-#define IR_SENSOR_H
+#ifndef EDGE_DETECT_H
+#define EDGE_DETECT_H
 
-#include <stdint.h>
+#include "Std_Types.h"
 
-void ir_sensor_init(void);
-void ir_sensor_update(void);
-uint16_t ir_sensor_get_count(void);
+void EdgeDetect_Init(void);
+uint8 EdgeDetect_CheckFallingEdge(void);
 
 #endif

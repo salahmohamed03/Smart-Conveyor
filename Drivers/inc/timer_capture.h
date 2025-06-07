@@ -1,9 +1,13 @@
+
+
+
+
 #ifndef TIMER_CAPTURE_H
 #define TIMER_CAPTURE_H
 
-#include <stdint.h>
+#include "Std_Types.h"
 
-void timer_capture_init(void);
-float timer_capture_get_speed(void);
+void TimerCapture_Init(void);
+uint32 TimerCapture_MeasurePulseWidth(void);
 
 #endif
