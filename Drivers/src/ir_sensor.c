@@ -1,6 +1,5 @@
 #include "Gpio.h"
 #include "ir_sensor.h"
-#include "Gpio.h"
 #include "Rcc.h"
 
 static uint8 previous_state = 1;  // Assume the button is unpressed initially (HIGH)

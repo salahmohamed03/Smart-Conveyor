@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/Smart-Conveyor.iml" filepath="$PROJECT_DIR$/.idea/Smart-Conveyor.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/stm32f4-task2.iml" filepath="$PROJECT_DIR$/.idea/stm32f4-task2.iml" />
     </modules>
   </component>
 </project>
