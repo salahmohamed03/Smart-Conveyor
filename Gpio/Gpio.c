@@ -16,54 +16,71 @@ void Gpio_Init(uint8 PortName, uint8 PinNumber, uint8 PinMode, uint8 DefaultStat
     switch (PortName) {
         case GPIO_A:
             GPIOA_MODER &= ~(0x03 << (PinNumber * 2));
-            GPIOA_MODER |= PinMode << (PinNumber * 2);
-            if(PinMode == GPIO_OUTPUT){
-                GPIOA_OTYPER &= ~(0x01 << (PinNumber));
-                GPIOA_OTYPER |= (DefaultState << (PinNumber));
-            }else{
-                GPIOA_PUPDR &= ~(0x01 << (PinNumber * 2));
+            GPIOA_MODER |= (PinMode << (PinNumber * 2));
+
+            if (PinMode == GPIO_OUTPUT) {
+                GPIOA_OTYPER &= ~(0x01 << PinNumber);
+                GPIOA_OTYPER |= (DefaultState << PinNumber);
+            } else if (PinMode == GPIO_INPUT) {
+                GPIOA_PUPDR &= ~(0x03 << (PinNumber * 2));
                 GPIOA_PUPDR |= (DefaultState << (PinNumber * 2));
+            } else if (PinMode == GPIO_AF) {
+                GPIOA_OTYPER &= ~(1 << PinNumber);                // Push-pull
+                GPIOA_OSPEEDR &= ~(0x03 << (PinNumber * 2));      // Clear speed
+                GPIOA_OSPEEDR |= (0x01 << (PinNumber * 2));       // Medium speed (01)
+                GPIOA_PUPDR &= ~(0x03 << (PinNumber * 2));        // No pull-up/pull-down
+
+                // Set AF1 for pins 0–7 (AFRL)
+                GPIOA_AFRL &= ~(0xF << (PinNumber * 4));
+                GPIOA_AFRL |= (0x1 << (PinNumber * 4));           // AF1 = TIM2_CH1, etc.
             }
             break;
+
         case GPIO_B:
             GPIOB_MODER &= ~(0x03 << (PinNumber * 2));
             GPIOB_MODER |= (PinMode << (PinNumber * 2));
+
             if (PinMode == GPIO_INPUT) {
                 GPIOB_PUPDR &= ~(0x03 << (PinNumber * 2));
                 GPIOB_PUPDR |= (DefaultState << (PinNumber * 2));
             } else {
-                GPIOB_OTYPER  &=~(0x1 << PinNumber);
-                GPIOB_OTYPER  |= (DefaultState << (PinNumber));
+                GPIOB_OTYPER &= ~(0x1 << PinNumber);
+                GPIOB_OTYPER |= (DefaultState << PinNumber);
             }
             break;
+
         case GPIO_C:
-            
             GPIOC_MODER &= ~(0x03 << (PinNumber * 2));
             GPIOC_MODER |= (PinMode << (PinNumber * 2));
+
             if (PinMode == GPIO_INPUT) {
                 GPIOC_PUPDR &= ~(0x03 << (PinNumber * 2));
                 GPIOC_PUPDR |= (DefaultState << (PinNumber * 2));
             } else {
-                GPIOC_OTYPER  &=~(0x1 << PinNumber);
-                GPIOC_OTYPER  |= (DefaultState << (PinNumber));
+                GPIOC_OTYPER &= ~(0x1 << PinNumber);
+                GPIOC_OTYPER |= (DefaultState << PinNumber);
             }
             break;
+
         case GPIO_D:
             GPIOD_MODER &= ~(0x03 << (PinNumber * 2));
             GPIOD_MODER |= (PinMode << (PinNumber * 2));
+
             if (PinMode == GPIO_INPUT) {
                 GPIOD_PUPDR &= ~(0x03 << (PinNumber * 2));
                 GPIOD_PUPDR |= (DefaultState << (PinNumber * 2));
             } else {
-                GPIOD_OTYPER  &=~(0x1 << PinNumber);
-                GPIOD_OTYPER  |= (DefaultState << (PinNumber));
+                GPIOD_OTYPER &= ~(0x1 << PinNumber);
+                GPIOD_OTYPER |= (DefaultState << PinNumber);
             }
             break;
+
         default:
             break;
     }
-
 }
+
+
 
 uint8 Gpio_WritePin(uint8 PortName, uint8 PinNumber, uint8 Data) {
     unsigned char isInput = 0;
