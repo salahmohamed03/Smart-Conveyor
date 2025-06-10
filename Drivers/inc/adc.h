@@ -2,10 +2,10 @@
 // Created by Lenovo on 6/8/2025.
 //
 
-
 #ifndef ADC_H
 #define ADC_H
 
+#include "Std_Types.h"
 #include <stdint.h>
 #include <stdbool.h>
 

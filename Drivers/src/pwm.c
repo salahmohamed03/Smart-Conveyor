@@ -1,20 +1,11 @@
 #include "register_map.h"
+#include "Gpio.h"
 #include "Std_Types.h"
 
-#define PWM_PORT 'A'
-#define PWM_PIN 5
-
-#define PWM_TIMER       TIM2
-#define PWM_CHANNEL     1
-
-// Helper: Enable peripheral clocks manually
-void Rcc_Enable_GPIOA(void) {
-    RCC->AHB1ENR |= (1 << 0);  // GPIOAEN = bit 0
-}
-
-void Rcc_Enable_TIM2(void) {
-    RCC->APB1ENR |= (1 << 0);  // TIM2EN = bit 0
-}
+#define PWM_PORT     GPIO_A
+#define PWM_PIN      5
+#define PWM_TIMER    TIM2
+#define PWM_CHANNEL  1
 
 // Helper: Configure GPIOA Pin 5 to AF1 (TIM2_CH1)
 void GpioA_Pin5_AF1(void) {
@@ -40,11 +31,12 @@ void GpioA_Pin5_AF1(void) {
 
 void PWM_Init(void) {
     // Enable clocks
-    Rcc_Enable_GPIOA();
-    Rcc_Enable_TIM2();
+    RCC->AHB1ENR |= (1 << 0);    // GPIOAEN bit 0
+    RCC->APB1ENR |= (1 << 0);    // TIM2EN bit 0
 
-    // Configure GPIOA pin 5 to AF1
-    GpioA_Pin5_AF1();
+    // Configure GPIOA pin 5 to AF mode using GPIO module
+    Gpio_Init(PWM_PORT, PWM_PIN, GPIO_AF, 1);
+    // GpioA_Pin5_AF1();
 
     // Timer configuration
     PWM_TIMER->PSC = 84 - 1;        // Prescaler to get 1 MHz timer clock (assuming 84 MHz clock)

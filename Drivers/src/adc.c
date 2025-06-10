@@ -1,4 +1,6 @@
 #include "register_map.h"
+#include "Gpio.h"
+#include "Std_Types.h"
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -11,12 +13,14 @@ void ADC_Init(void) {
     RCC->APB2ENR |= (1 << 8);    // ADC1EN bit 8
     RCC->AHB1ENR |= (1 << 0);    // GPIOAEN bit 0
 
+    // Configure PA1 as analog mode using GPIO module
+    Gpio_Init(GPIO_A, 1, GPIO_ANALOG, GPIO_NO_PULL_DOWN);
     // Configure PA0 as analog mode (MODER = 11)
-    GPIOA->MODER &= ~(3 << (0 * 2));
-    GPIOA->MODER |= (3 << (0 * 2));
-
-    // No pull-up / pull-down
-    GPIOA->PUPDR &= ~(3 << (0 * 2));
+    // GPIOA->MODER &= ~(3 << (0 * 2));
+    // GPIOA->MODER |= (3 << (0 * 2));
+    //
+    // // No pull-up / pull-down
+    // GPIOA->PUPDR &= ~(3 << (0 * 2));
 
     // Reset ADC registers
     ADC1->CR1 = 0;
@@ -24,11 +28,11 @@ void ADC_Init(void) {
 
     // One conversion
     ADC1->SQR1 = 0;
-    ADC1->SQR3 = 0;  // Channel 0
+    ADC1->SQR3 = 1;  // Channel 1
 
-    // Sample time maximum for channel 0 (bits 2:0 in SMPR2)
-    ADC1->SMPR2 &= ~(7 << (0 * 3));
-    ADC1->SMPR2 |= (7 << (0 * 3));
+    // Sample time maximum for channel 1 (bits 5:3 in SMPR2)
+    ADC1->SMPR2 &= ~(7 << (1 * 3));
+    ADC1->SMPR2 |= (7 << (1 * 3));
 
     // Enable ADC
     ADC1->CR2 |= (1 << 0); // ADON bit
