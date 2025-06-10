@@ -33,7 +33,7 @@ void emergency_button_init(void) {
 void EXTI4_IRQHandler(void) {
     if (_EXTI->PR & (1 << EMERGENCY_BUTTON_PIN)) { // Check if the interrupt was triggered by the emergency button
         _EXTI->PR |= (1 << EMERGENCY_BUTTON_PIN); // Clear the pending interrupt
-        emergency_button_handler(); // Call the handler function
+        // emergency_button_handler(); // Call the handler function
     }
 }
 

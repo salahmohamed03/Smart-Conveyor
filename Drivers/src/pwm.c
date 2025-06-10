@@ -1,57 +1,71 @@
-#include <Gpio.h>
-#include "pwm.h"
+#include "register_map.h"
 #include "Std_Types.h"
-#include "Rcc.h"
 
-#define PWM_PORT GPIO_A
+#define PWM_PORT 'A'
 #define PWM_PIN 5
 
 #define PWM_TIMER       TIM2
-#define PWM_CHANNEL     2  // Using channel 2 for PA5
+#define PWM_CHANNEL     1
 
-/* GPIO registers for alternate function configuration */
-#define GPIOA_BASE     0x40020000
-#define GPIOA_AFRL     (*(volatile uint32 *)(GPIOA_BASE + 0x20))
+// Helper: Enable peripheral clocks manually
+void Rcc_Enable_GPIOA(void) {
+    RCC->AHB1ENR |= (1 << 0);  // GPIOAEN = bit 0
+}
+
+void Rcc_Enable_TIM2(void) {
+    RCC->APB1ENR |= (1 << 0);  // TIM2EN = bit 0
+}
+
+// Helper: Configure GPIOA Pin 5 to AF1 (TIM2_CH1)
+void GpioA_Pin5_AF1(void) {
+    // 1) Set MODER bits for PA5 to AF (Alternate Function = 10)
+    GPIOA->MODER &= ~(3 << (PWM_PIN * 2));   // Clear bits first
+    GPIOA->MODER |= (2 << (PWM_PIN * 2));    // Set to '10' = AF mode
+
+    // 2) Set OTYPER to Push-Pull (0)
+    GPIOA->OTYPER &= ~(1 << PWM_PIN);
+
+    // 3) Set OSPEEDR to Medium speed (01) or High speed (11), let's pick Medium:
+    GPIOA->OSPEEDR &= ~(3 << (PWM_PIN * 2));
+    GPIOA->OSPEEDR |= (1 << (PWM_PIN * 2));
+
+    // 4) No pull-up/pull-down (00)
+    GPIOA->PUPDR &= ~(3 << (PWM_PIN * 2));
+
+    // 5) Set Alternate Function register for pin 5: AF1 = TIM2_CH1
+    // PA5 is pin 5 -> AFR[0] low register (pins 0..7)
+    GPIOA->AFR[0] &= ~(0xF << (PWM_PIN * 4));   // Clear
+    GPIOA->AFR[0] |= (1 << (PWM_PIN * 4));      // AF1
+}
 
 void PWM_Init(void) {
-    // Enable TIM2 clock
-    Rcc_Enable(RCC_TIM2);
+    // Enable clocks
+    Rcc_Enable_GPIOA();
+    Rcc_Enable_TIM2();
 
-    // Configure PA5 as alternate function for TIM2_CH2
-    Gpio_Init(GPIO_A, 5, GPIO_AF, GPIO_NO_PULL_DOWN);
+    // Configure GPIOA pin 5 to AF1
+    GpioA_Pin5_AF1();
 
-    // Set alternate function AF1 for PA5 (TIM2_CH2)
-    GPIOA_AFRL &= ~(0xF << (5 * 4));  // Clear bits for PA5
-    GPIOA_AFRL |=  (0x1 << (5 * 4));  // Set AF1 (TIM2) for PA5
+    // Timer configuration
+    PWM_TIMER->PSC = 84 - 1;        // Prescaler to get 1 MHz timer clock (assuming 84 MHz clock)
+    PWM_TIMER->ARR = 1000 - 1;      // Auto reload: for 1 kHz PWM frequency
 
-    // Timer base configuration
-    PWM_TIMER->PSC = 83;        // Prescaler: 84MHz/84 = 1MHz
-    PWM_TIMER->ARR = 999;       // Auto reload: 1MHz/1000 = 1kHz PWM frequency
-    PWM_TIMER->CCR2 = 0;        // Set CH2 (PA5) duty to 0% initially
+    // Configure PWM mode 1 on CH1
+    PWM_TIMER->CCMR1 &= ~(0xFF);           // Clear CCMR1 low byte first
+    PWM_TIMER->CCMR1 |= (6 << 4);           // OC1M bits (6 = PWM mode 1)
+    PWM_TIMER->CCMR1 |= (1 << 3);           // OC1PE bit - enable preload
 
-    // Configure PWM mode 1 on CH2 (PA5)
-    PWM_TIMER->CCMR1 &= ~(0xFF00);     // Clear CCMR1 high byte (CH2 config)
-    PWM_TIMER->CCMR1 |= (6 << 12);     // OC2M bits (6 = PWM mode 1)
-    PWM_TIMER->CCMR1 |= (1 << 11);     // OC2PE bit - enable preload
+    PWM_TIMER->CCER |= 1;                   // Enable output on CH1 (CC1E)
 
-    // Enable output on CH2
-    PWM_TIMER->CCER |= (1 << 4);       // CC2E - Enable CH2 output
-    PWM_TIMER->CCER &= ~(1 << 5);      // CC2P - Active high polarity
+    PWM_TIMER->CR1 |= (1 << 7);             // ARPE bit - enable auto reload preload
 
-    // Enable auto-reload preload
-    PWM_TIMER->CR1 |= (1 << 7);        // ARPE bit - enable auto reload preload
+    PWM_TIMER->EGR |= 1;                    // UG bit - generate update event to load registers
 
-    // Generate update event to load registers
-    PWM_TIMER->EGR |= (1 << 0);        // UG bit - generate update event
-
-    // Enable the counter
-    PWM_TIMER->CR1 |= (1 << 0);        // CEN bit - enable counter
+    PWM_TIMER->CR1 |= 1;                    // CEN bit - enable counter
 }
 
 void PWM_SetDuty(uint8 percent) {
     if (percent > 100) percent = 100;
 
-    // Calculate duty cycle: CCR2 = (ARR + 1) * percent / 100
-    uint32 duty_value = ((PWM_TIMER->ARR + 1) * percent) / 100;
-    PWM_TIMER->CCR2 = duty_value;
+    PWM_TIMER->CCR1 = (PWM_TIMER->ARR * percent) / 100;
 }
