@@ -26,7 +26,6 @@ typedef struct {
 #define _NVIC ((_NVIC_TypeDef *)0xE000E100)
 
 void emergency_button_init(void) {
-    Rcc_Enable(EMERGENCY_RCC);
     Gpio_Init(EMERGENCY_BUTTON_PORT, EMERGENCY_BUTTON_PIN, GPIO_INPUT, GPIO_PULL_UP);
     Exti_Init(EMERGENCY_BUTTON_PIN, EMERGENCY_BUTTON_PORT, EXTI_TRIGGER_FALLING);
     Exti_Enable(EMERGENCY_BUTTON_PIN);

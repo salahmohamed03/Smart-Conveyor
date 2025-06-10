@@ -1,6 +1,5 @@
 #include <Gpio.h>
-
-#include "register_map.h"
+#include "pwm.h"
 #include "Std_Types.h"
 #include "Rcc.h"
 
@@ -10,49 +9,16 @@
 #define PWM_TIMER       TIM2
 #define PWM_CHANNEL     1
 
-// Helper: Enable peripheral clocks manually
-// void Rcc_Enable_GPIOA(void) {
-//     RCC->AHB1ENR |= (1 << 0);  // GPIOAEN = bit 0
-// }
-//
-// void Rcc_Enable_TIM2(void) {
-//     RCC->APB1ENR |= (1 << 0);  // TIM2EN = bit 0
-// }
-
-//
-// // Helper: Configure GPIOA Pin 5 to AF1 (TIM2_CH1)
-// void GpioA_Pin5_AF1(void) {
-//     // 1) Set MODER bits for PA5 to AF (Alternate Function = 10)
-//     GPIOA->MODER &= ~(3 << (PWM_PIN * 2));   // Clear bits first
-//     GPIOA->MODER |= (2 << (PWM_PIN * 2));    // Set to '10' = AF mode
-//
-//     // 2) Set OTYPER to Push-Pull (0)
-//     GPIOA->OTYPER &= ~(1 << PWM_PIN);
-//
-//     // 3) Set OSPEEDR to Medium speed (01) or High speed (11), let's pick Medium:
-//     GPIOA->OSPEEDR &= ~(3 << (PWM_PIN * 2));
-//     GPIOA->OSPEEDR |= (1 << (PWM_PIN * 2));
-//
-//     // 4) No pull-up/pull-down (00)
-//     GPIOA->PUPDR &= ~(3 << (PWM_PIN * 2));
-//
-//     // 5) Set Alternate Function register for pin 5: AF1 = TIM2_CH1
-//     // PA5 is pin 5 -> AFR[0] low register (pins 0..7)
-//     GPIOA->AFR[0] &= ~(0xF << (PWM_PIN * 4));   // Clear
-//     GPIOA->AFR[0] |= (1 << (PWM_PIN * 4));      // AF1
-// }
-
 void PWM_Init(void) {
-    // Enable clocks
-    Rcc_Enable(RCC_GPIOA); // GPIOA
     Rcc_Enable(RCC_TIM2); // TIM
 
-    // Configure GPIOA pin 5 to AF1
-    Gpio_Init(GPIO_A, 5, GPIO_AF, GPIO_NO_PULL_DOWN);
+    Gpio_Init(GPIO_A, 5, GPIO_AF, GPIO_PULL_UP);
 
     // Timer configuration
     PWM_TIMER->PSC = 84 - 1;        // Prescaler to get 1 MHz timer clock (assuming 84 MHz clock)
     PWM_TIMER->ARR = 1000 - 1;      // Auto reload: for 1 kHz PWM frequency
+
+    PWM_TIMER->CCR1 = 0;   //  Set CH1 (PA5) duty to 0%
 
     // Configure PWM mode 1 on CH1
     PWM_TIMER->CCMR1 &= ~(0xFF);           // Clear CCMR1 low byte first
@@ -67,7 +33,30 @@ void PWM_Init(void) {
 
     PWM_TIMER->CR1 |= 1;                    // CEN bit - enable counter
 
-    PWM_TIMER->CCR3 |= 0;                   // Start with 0% duty cycle
+    // // Timer configuration
+    // PWM_TIMER->PSC = 84 - 1;        // Prescaler to get 1 MHz timer clock
+    // PWM_TIMER->ARR = 1000 - 1;      // Auto reload: for 1 kHz PWM frequency
+    //
+    // // Configure PWM mode 1 on CH1
+    // PWM_TIMER->CCMR1 &= ~(0xFF);           // Clear CCMR1 low byte
+    // PWM_TIMER->CCMR1 |= (6 << 4);          // OC1M bits (6 = PWM mode 1)
+    // PWM_TIMER->CCMR1 |= (1 << 3);          // OC1PE bit - enable preload
+    //
+    // // Enable output on CH1 and set polarity (active high)
+    // PWM_TIMER->CCER |= (1 << 0);           // CC1E - Enable CH1 output
+    // PWM_TIMER->CCER &= ~(1 << 1);          // CC1P - Active high polarity
+    //
+    // // Set initial duty cycle (50% for testing)
+    // PWM_TIMER->CCR1 = 500;                 // 50% duty cycle
+    //
+    // // Enable auto-reload preload
+    // PWM_TIMER->CR1 |= (1 << 7);            // ARPE bit
+    //
+    // // Generate update event to load all registers
+    // PWM_TIMER->EGR |= (1 << 0);            // UG bit
+    //
+    // // Finally, enable the counter
+    // PWM_TIMER->CR1 |= (1 << 0);
 }
 
 void PWM_SetDuty(uint8 percent) {

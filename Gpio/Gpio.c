@@ -1,144 +1,71 @@
-/**
- * Gpio.c
- *
- *  Created on: 4/15/2025
- *  Author    : AbdallahDarwish
- */
+#include <Std_Types.h>
+#include "GPIO.h"
+#include "GPIO_PRIVATE.h"
+#define GPIO_REG(PORT_ID, REG_ID) ((volatile uint32 *) ((PORT_ID) + (REG_ID)))
 
-
-#include "Std_Types.h"
-#include "Gpio.h"
-#include "Utils.h"
-#include "Bit_Operations.h"
-#include "Gpio_Private.h"
+uint32 addressMap[4] = {GPIOA_BASE_ADDR, GPIOB_BASE_ADDR, GPIOC_BASE_ADDR, GPIOD_BASE_ADDR};
 
 void Gpio_Init(uint8 PortName, uint8 PinNumber, uint8 PinMode, uint8 DefaultState) {
-    switch (PortName) {
-        case GPIO_A:
-            GPIOA_MODER &= ~(0x03 << (PinNumber * 2));
-            GPIOA_MODER |= (PinMode << (PinNumber * 2));
+    // Select port base using your address map
+    uint8 addressIndex = PortName - GPIO_A;
+    GpioType* gpioDevice = (GpioType*) addressMap[addressIndex];
 
-            if (PinMode == GPIO_OUTPUT) {
-                GPIOA_OTYPER &= ~(0x01 << PinNumber);
-                GPIOA_OTYPER |= (DefaultState << PinNumber);
-            } else if (PinMode == GPIO_INPUT) {
-                GPIOA_PUPDR &= ~(0x03 << (PinNumber * 2));
-                GPIOA_PUPDR |= (DefaultState << (PinNumber * 2));
-            } else if (PinMode == GPIO_AF) {
-                GPIOA_OTYPER &= ~(1 << PinNumber);                // Push-pull
-                GPIOA_OSPEEDR &= ~(0x03 << (PinNumber * 2));      // Clear speed
-                GPIOA_OSPEEDR |= (0x01 << (PinNumber * 2));       // Medium speed (01)
-                GPIOA_PUPDR &= ~(0x03 << (PinNumber * 2));        // No pull-up/pull-down
+    // 1. Set MODER
+    gpioDevice->GPIO_MODER &= ~(0x03 << (PinNumber * 2));
+    gpioDevice->GPIO_MODER |=  (PinMode << (PinNumber * 2));
 
-                // Set AF1 for pins 0–7 (AFRL)
-                GPIOA_AFRL &= ~(0xF << (PinNumber * 4));
-                GPIOA_AFRL |= (0x1 << (PinNumber * 4));           // AF1 = TIM2_CH1, etc.
-            }
-            break;
+    if (PinMode == GPIO_INPUT) {
+        // 2. Configure pull-up/pull-down
+        gpioDevice->GPIO_PUPDR &= ~(0x03 << (PinNumber * 2));
+        gpioDevice->GPIO_PUPDR |=  (DefaultState << (PinNumber * 2));
 
-        case GPIO_B:
-            GPIOB_MODER &= ~(0x03 << (PinNumber * 2));
-            GPIOB_MODER |= (PinMode << (PinNumber * 2));
+    } else if (PinMode == GPIO_OUTPUT) {
+        // 3. Configure output type (Push-Pull or Open-Drain)
+        gpioDevice->GPIO_OTYPER &= ~(1 << PinNumber);
+        gpioDevice->GPIO_OTYPER |=  (DefaultState << PinNumber);
 
-            if (PinMode == GPIO_INPUT) {
-                GPIOB_PUPDR &= ~(0x03 << (PinNumber * 2));
-                GPIOB_PUPDR |= (DefaultState << (PinNumber * 2));
-            } else {
-                GPIOB_OTYPER &= ~(0x1 << PinNumber);
-                GPIOB_OTYPER |= (DefaultState << PinNumber);
-            }
-            break;
+    } else if (PinMode == GPIO_AF) {
+        // 4. Set output type: push-pull
+        gpioDevice->GPIO_OTYPER &= ~(1 << PinNumber); // Push-pull
 
-        case GPIO_C:
-            GPIOC_MODER &= ~(0x03 << (PinNumber * 2));
-            GPIOC_MODER |= (PinMode << (PinNumber * 2));
+        // 5. Set speed: medium speed
+        gpioDevice->GPIO_OSPEEDR &= ~(0x03 << (PinNumber * 2));
+        gpioDevice->GPIO_OSPEEDR |=  (0x01 << (PinNumber * 2)); // Medium speed
 
-            if (PinMode == GPIO_INPUT) {
-                GPIOC_PUPDR &= ~(0x03 << (PinNumber * 2));
-                GPIOC_PUPDR |= (DefaultState << (PinNumber * 2));
-            } else {
-                GPIOC_OTYPER &= ~(0x1 << PinNumber);
-                GPIOC_OTYPER |= (DefaultState << PinNumber);
-            }
-            break;
+        // 6. Disable pull-up/pull-down
+        gpioDevice->GPIO_PUPDR &= ~(0x03 << (PinNumber * 2));
 
-        case GPIO_D:
-            GPIOD_MODER &= ~(0x03 << (PinNumber * 2));
-            GPIOD_MODER |= (PinMode << (PinNumber * 2));
+        // 7. Set alternate function number (AF0–AF15)
+        if (PinNumber < 8) {
+            gpioDevice->GPIO_AFRL &= ~(0xF << (PinNumber * 4));
+            gpioDevice->GPIO_AFRL |=  (DefaultState << (PinNumber * 4));
+        } else {
+            gpioDevice->GPIO_AFRH &= ~(0xF << ((PinNumber - 8) * 4));
+            gpioDevice->GPIO_AFRH |=  (DefaultState << ((PinNumber - 8) * 4));
+        }
 
-            if (PinMode == GPIO_INPUT) {
-                GPIOD_PUPDR &= ~(0x03 << (PinNumber * 2));
-                GPIOD_PUPDR |= (DefaultState << (PinNumber * 2));
-            } else {
-                GPIOD_OTYPER &= ~(0x1 << PinNumber);
-                GPIOD_OTYPER |= (DefaultState << PinNumber);
-            }
-            break;
-
-        default:
-            break;
+    } else if (PinMode == GPIO_ANALOG) {
+        // 8. Analog mode = MODER already set to 11, disable pull-up/down
+        gpioDevice->GPIO_PUPDR &= ~(0x03 << (PinNumber * 2));
     }
 }
 
 
 
 uint8 Gpio_WritePin(uint8 PortName, uint8 PinNumber, uint8 Data) {
-    unsigned char isInput = 0;
-    switch (PortName) {
-        case GPIO_A:
-            isInput =((GPIOA_MODER & ( 0x3 << (PinNumber * 2)) )== GPIO_INPUT)? 1:0;
-            if (isInput) {
-                return NOK;
-            }
-            GPIOA_ODR  &=~(0x1 << PinNumber);
-            GPIOA_ODR |= (Data << PinNumber);
-            break;
-        case GPIO_B:
-            isInput =((GPIOB_MODER & ( 0x3 << (PinNumber * 2)) )== GPIO_INPUT)? 1:0;
-            if (isInput) {
-                return NOK;
-            }
-            GPIOB_ODR  &=~(0x1 << PinNumber);
-            GPIOB_ODR |= (Data << PinNumber);
-            break;
-        case GPIO_C:
-            isInput =((GPIOC_MODER & ( 0x3 << (PinNumber * 2)) )== GPIO_INPUT)? 1:0;
-            if (isInput) {
-                return NOK;
-            }
-            GPIOC_ODR  &=~(0x1 << PinNumber);
-            GPIOC_ODR |= (Data << PinNumber);
-            break;
-        case GPIO_D:
-            isInput =((GPIOD_MODER & ( 0x3 << (PinNumber * 2)) )== GPIO_INPUT)? 1:0;
-            if (isInput) {
-                return NOK;
-            }
-            break;
-        default:
-            break;
-    }
-    return OK;
+    uint8 status = NOK;
+    uint8 addressIndex = PortName - GPIO_A;
+    GpioType* gpioDevice = (GpioType*) addressMap[addressIndex];
+    if (((gpioDevice->GPIO_MODER & (0x03 << (PinNumber * 2))) >> (PinNumber * 2)) != GPIO_INPUT) {
+        gpioDevice->GPIO_ODR &= ~(0x1 << PinNumber);
+        gpioDevice->GPIO_ODR |= (Data << PinNumber);
+        status = OK;
+    } return status;
 }
 
-uint8 Gpio_ReadPin(uint8 PortName, uint8 PinNumber)
-{
-    uint8 data = 0;
-    switch (PortName) {
-        case GPIO_A:
-            data = (GPIOA_IDR & (0x01 << PinNumber)) >> PinNumber;
-            break;
-        case GPIO_B:
-            data = (GPIOB_IDR & (0x01 << PinNumber)) >> PinNumber;
-            break;
-        case GPIO_C:
-            data = (GPIOC_IDR & (0x01 << PinNumber)) >> PinNumber;
-            break;
-        case GPIO_D:
-            data = (GPIOD_IDR & (0x01 << PinNumber)) >> PinNumber;
-            break;
-        default:
-            break;
-    }
+uint8 Gpio_ReadPin(uint8 PortName, uint8 PinNum) {
+    uint8 data = 0; uint8 addressIndex = PortName - GPIO_A;
+    GpioType* gpioDevice = (GpioType*) addressMap[addressIndex];
+    data = (gpioDevice->GPIO_IDR & (0x1 << PinNum)) >> PinNum;
     return data;
 }

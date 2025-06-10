@@ -45,8 +45,6 @@ static void lcd_send(uint8_t value, uint8_t mode) {
 
 // Initialize the LCD
 void lcd_init(void) {
-    // Enable GPIO clock
-    Rcc_Enable(RCC_GPIOB); // Assuming GPIOB is used for LCD data pins
 
     // Configure GPIO pins for LCD
     Gpio_Init(LCD_DATA_PORT, LCD_RS_PIN, GPIO_OUTPUT, GPIO_PUSH_PULL);

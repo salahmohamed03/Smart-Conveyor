@@ -5,71 +5,95 @@
 #include "gpio.h"
 #include "adc.h"
 
+#include <stdio.h>
+
+// Define ADC1 as default ADC peripheral (CMSIS compatibility)
 #define ADC1    ADC
 
-static bool adc_ready = false;
+// Alpha value for simple low-pass filter (higher = smoother but slower)
+#define FILTER_ALPHA 8
+
+// 12-bit ADC max value = 2^12 - 1 = 4095
+#define ADC_MAX_VALUE 4095
+
+// Internal state flags and variables
+static bool adc_ready = false;        // Prevents re-initialization
+static uint16_t adc_filtered = 0;     // Holds filtered ADC value between readings
+
 
 void ADC_Init(void) {
-    if (adc_ready) return;
+    // Enable clock for GPIOA and ADC1
+    // Rcc_Enable(RCC_GPIOA);
+    Rcc_Enable(RCC_ADC1);
 
-    // Enable clocks
-    // RCC->APB2ENR |= (1 << 8);    // ADC1EN bit 8
-    // RCC->AHB1ENR |= (1 << 0);    // GPIOAEN bit 0
-    Rcc_Enable(RCC_GPIOA); // GPIOA
-    Rcc_Enable(RCC_ADC1); // ADC
-
-
-    // Configure PA0 as analog mode (MODER = 11)
-    // GPIOA->MODER &= ~(3 << (0 * 2));
-    // GPIOA->MODER |= (3 << (0 * 2));
-    //
-    // // No pull-up / pull-down
-    // GPIOA->PUPDR &= ~(3 << (0 * 2));
+    // Configure PA0 (ADC Channel 0) as analog input with no pull-up/down
     Gpio_Init(GPIO_A, 0, GPIO_ANALOG, GPIO_NO_PULL_DOWN);
 
-
-
-    // Reset ADC registers
-    ADC1->CR1 = 0;
+    // Reset ADC control registers to default
+    // ADC1->CR1 = 0;
     ADC1->CR2 = 0;
 
-    // One conversion
-    ADC1->SQR1 = 0;
-    ADC1->SQR3 = 0;  // Channel 0
+    // Set ADC to perform one conversion (not sequence)
+    // ADC1->SQR1 = 0;    // One conversion in regular sequence
+    ADC1->SQR3 = 0;    // First (and only) channel is channel 0 (PA0)
 
-    // Sample time maximum for channel 0 (bits 2:0 in SMPR2)
-    ADC1->SMPR2 &= ~(7 << (0 * 3));
-    ADC1->SMPR2 |= (7 << (0 * 3));
+    // Set maximum sample time for channel 0 for stable results (480 cycles)
+    ADC1->SMPR2 &= ~(7 << 0);         // Clear channel 0 sample time bits
+    ADC1->SMPR2 |=  (3 << 0);   // Set sample time to 480 cycles
 
-    // Enable ADC
-    ADC1->CR2 |= (1 << 0); // ADON bit
+    // Enable the ADC by setting the ADON bit
+    ADC1->CR2 |= (1 << 0);
 
-    // Small delay for stabilization
-    for (volatile int i = 0; i < 10000; i++);
-
-    adc_ready = true;
+    // Wait a short time for the ADC to stabilize after enabling
+    // for (volatile int i = 0; i < 10000; i++);
 }
 
-uint16_t ADC_Read(uint8_t channel) {
-    if (!adc_ready || channel > 18) return 0;
 
-    // Select channel
+uint16_t ADC_ReadRaw(uint8_t channel) {
+    if (!adc_ready || channel > 18) return 0; // Validate state and input
+
+    // Select ADC channel for conversion
     ADC1->SQR3 = channel;
 
-    // Clear EOC flag
+    // Clear the End Of Conversion (EOC) flag before starting
     ADC1->SR &= ~(1 << 1);
 
-    // Start conversion (SWSTART bit)
-    ADC1->CR2 |= (1 << 30);
+    // Start ADC conversion using software trigger
+    ADC1->CR2 |= (1 << 30); // SWSTART
 
-    // Wait for conversion to complete
+    // Wait until conversion is complete (EOC flag is set)
     while (!(ADC1->SR & (1 << 1)));
 
-    // Read 12-bit data
+    // Return the 12-bit conversion result
     return (uint16_t)(ADC1->DR & 0x0FFF);
 }
 
+
+uint16_t ADC_ReadFiltered(uint8_t channel) {
+    // Read a new raw ADC value from the selected channel
+    uint16_t new_value = ADC_ReadRaw(channel);
+
+    // Initialize filter value on first call
+    if (adc_filtered == 0) {
+        adc_filtered = new_value;
+    }
+
+    // Apply low-pass filter: smooth out noise by averaging
+    adc_filtered = (adc_filtered * (FILTER_ALPHA - 1) + new_value) / FILTER_ALPHA;
+
+    return adc_filtered;
+}
+
+
 uint8_t ADC_ToPercent(uint16_t value) {
-    if (value > 4095) value = 4095;
-    return (uint8_t)((value * 100UL) / 4095);
+    // Limit input value to maximum 4095
+    if (value > ADC_MAX_VALUE) value = ADC_MAX_VALUE;
+
+    // Scale to 0–100% using 32-bit math to prevent overflow
+    uint32_t temp = ((uint32_t)value * 100UL) / ADC_MAX_VALUE;
+
+    // Cap percentage to 100
+    if (temp > 100) temp = 100;
+
+    return (uint8_t)temp;
 }

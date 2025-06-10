@@ -20,18 +20,12 @@
 
 #define TIM_CH1 1
 
-
-
 void TimerCapture_Init(void)
 {
-    /* 1. Enable timer clock */
-    Rcc_Enable(RCC_TIM2);
-    Rcc_Enable(RCC_GPIOA);
+    /* 2. Configure GPIO for timer input (PA1 - TIM2_CH1) */
+    Gpio_Init(GPIO_A, 1, GPIO_AF, GPIO_NO_PULL_DOWN);
 
-    /* 2. Configure GPIO for timer input (PA0 - TIM2_CH1) */
-    Gpio_Init(GPIO_A, 0, GPIO_AF, GPIO_NO_PULL_DOWN);
-
-    // ⬇️ Configure alternate function for PA0 (AF1 for TIM2_CH1)
+    // Configure alternate function for PA0 (AF1 for TIM2_CH1)
     #define GPIOA_BASE     0x40020000
     #define GPIOA_AFRL     (*(volatile uint32 *)(GPIOA_BASE + 0x20))
     GPIOA_AFRL &= ~(0xF << (0 * 4));  // Clear bits for PA0

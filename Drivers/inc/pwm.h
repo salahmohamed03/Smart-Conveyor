@@ -1,7 +1,5 @@
 /* pwm.h */
-#define PERIPH_BASE           0x40000000U
-#define APB1PERIPH_BASE       (PERIPH_BASE + 0x00000000U)
-#define TIM2_BASE             (APB1PERIPH_BASE + 0x0000U)
+#include <stdint.h>
 
 typedef struct {
     volatile uint32_t CR1;        // Control register 1
@@ -24,12 +22,15 @@ typedef struct {
     volatile uint32_t DMAR;       // DMA address for full transfer
 } TIM_TypeDef;
 
+#define PERIPH_BASE           0x40000000U
+#define APB1PERIPH_BASE       (PERIPH_BASE + 0x00000000U)
+#define TIM2_BASE             (APB1PERIPH_BASE + 0x0000U)
+
 #define TIM2    ((TIM_TypeDef *) TIM2_BASE)
 
 #ifndef PWM_H
 #define PWM_H
 
-#include <stdint.h>
 
 void PWM_Init(void);
 void PWM_SetDuty(uint8_t percent);

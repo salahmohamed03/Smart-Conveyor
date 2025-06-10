@@ -5,7 +5,6 @@
 static uint8 previous_state = 1;  // Assume the button is unpressed initially (HIGH)
 
 void EdgeDetect_Init(void) {
-    Rcc_Enable(RCC_GPIOC);
     Gpio_Init(GPIO_C, 1, GPIO_INPUT, GPIO_PULL_UP);  // Enable internal pull-up
 }
 

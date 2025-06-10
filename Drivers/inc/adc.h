@@ -1,8 +1,5 @@
 /* adc.h */
-#define PERIPH_BASE           0x40000000U
-#define APB2PERIPH_BASE       (PERIPH_BASE + 0x00000000U)
-#define ADC1_BASE             (APB2PERIPH_BASE + 0x2000U)
-
+#include <stdint.h>
 
 typedef struct {
     volatile uint32_t SR;         // ADC status register
@@ -27,18 +24,19 @@ typedef struct {
     volatile uint32_t DR;         // ADC regular data register
 } ADC_TypeDef;
 
-#define ADC    ((ADC_TypeDef *) ADC1_BASE)
+#define PERIPH_BASE           0x40000000U
+#define APB2PERIPH_BASE       (PERIPH_BASE + 0x00000000U)
+#define ADC1_BASE             (APB2PERIPH_BASE + 0x2000U)
 
+#define ADC    ((ADC_TypeDef *) ADC1_BASE)
 
 #ifndef ADC_H
 
-#include <stdint.h>
-#include <stdbool.h>
-
 #define ADC_H
 
-void ADC_Init(void);
-uint16_t ADC_Read(uint8_t channel);
-uint8_t ADC_ToPercent(uint16_t value);
+void     ADC_Init(void);
+uint16_t ADC_ReadRaw(uint8_t channel);
+uint16_t ADC_ReadFiltered(uint8_t channel);
+uint8_t  ADC_ToPercent(uint16_t value);
 
 #endif // ADC_H
