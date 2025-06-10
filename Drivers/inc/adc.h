@@ -34,9 +34,14 @@ typedef struct {
 
 #define ADC_H
 
+// General ADC functions
 void     ADC_Init(void);
 uint16_t ADC_ReadRaw(uint8_t channel);
 uint16_t ADC_ReadFiltered(uint8_t channel);
 uint8_t  ADC_ToPercent(uint16_t value);
+
+// Convenience functions for PA1 (avoiding PA0 and PA5)
+uint16_t ADC_ReadPA1Raw(void);
+uint16_t ADC_ReadPA1Filtered(void);
 
 #endif // ADC_H

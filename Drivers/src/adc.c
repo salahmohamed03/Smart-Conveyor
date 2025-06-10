@@ -16,6 +16,9 @@
 // 12-bit ADC max value = 2^12 - 1 = 4095
 #define ADC_MAX_VALUE 4095
 
+// ADC Channel for PA1 (avoiding PA0 and PA5)
+#define ADC_CHANNEL_PA1 1
+
 // Internal state flags and variables
 static bool adc_ready = false;        // Prevents re-initialization
 static uint16_t adc_filtered = 0;     // Holds filtered ADC value between readings
@@ -23,29 +26,33 @@ static uint16_t adc_filtered = 0;     // Holds filtered ADC value between readin
 
 void ADC_Init(void) {
     // Enable clock for GPIOA and ADC1
-    // Rcc_Enable(RCC_GPIOA);
+    // Note: GPIOA should be enabled in main before calling this
     Rcc_Enable(RCC_ADC1);
 
-    // Configure PA0 (ADC Channel 0) as analog input with no pull-up/down
-    Gpio_Init(GPIO_A, 0, GPIO_ANALOG, GPIO_NO_PULL_DOWN);
+    // Configure PA1 (ADC Channel 1) as analog input with no pull-up/down
+    // This avoids PA0 and PA5 which may be used for other purposes
+    Gpio_Init(GPIO_A, 1, GPIO_ANALOG, GPIO_NO_PULL_DOWN);
 
     // Reset ADC control registers to default
-    // ADC1->CR1 = 0;
+    ADC1->CR1 = 0;
     ADC1->CR2 = 0;
 
     // Set ADC to perform one conversion (not sequence)
-    // ADC1->SQR1 = 0;    // One conversion in regular sequence
-    ADC1->SQR3 = 0;    // First (and only) channel is channel 0 (PA0)
+    ADC1->SQR1 = 0;    // One conversion in regular sequence (L[3:0] = 0000)
+    ADC1->SQR3 = ADC_CHANNEL_PA1;    // First (and only) channel is channel 1 (PA1)
 
-    // Set maximum sample time for channel 0 for stable results (480 cycles)
-    ADC1->SMPR2 &= ~(7 << 0);         // Clear channel 0 sample time bits
-    ADC1->SMPR2 |=  (3 << 0);   // Set sample time to 480 cycles
+    // Set sample time for channel 1 for stable results (84 cycles)
+    ADC1->SMPR2 &= ~(7 << (ADC_CHANNEL_PA1 * 3));         // Clear channel 1 sample time bits
+    ADC1->SMPR2 |=  (4 << (ADC_CHANNEL_PA1 * 3));         // Set sample time to 84 cycles
 
     // Enable the ADC by setting the ADON bit
     ADC1->CR2 |= (1 << 0);
 
-    // Wait a short time for the ADC to stabilize after enabling
-    // for (volatile int i = 0; i < 10000; i++);
+    // Wait for ADC to stabilize after enabling
+    for (volatile int i = 0; i < 10000; i++);
+
+    // Set ready flag
+    adc_ready = true;
 }
 
 
@@ -82,6 +89,18 @@ uint16_t ADC_ReadFiltered(uint8_t channel) {
     adc_filtered = (adc_filtered * (FILTER_ALPHA - 1) + new_value) / FILTER_ALPHA;
 
     return adc_filtered;
+}
+
+
+// Convenience function to read from PA1 (avoiding PA0 and PA5)
+uint16_t ADC_ReadPA1Raw(void) {
+    return ADC_ReadRaw(ADC_CHANNEL_PA1);
+}
+
+
+// Convenience function to read filtered value from PA1 (avoiding PA0 and PA5)
+uint16_t ADC_ReadPA1Filtered(void) {
+    return ADC_ReadFiltered(ADC_CHANNEL_PA1);
 }
 
 
